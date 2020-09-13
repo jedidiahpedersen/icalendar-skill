@@ -1,24 +1,42 @@
-import sys
-sys.path.insert(1, '/home/jedidiah/Projects/LoadCalendar/mycroft-core/mycroft/skills/mycroft_skill/')
-#import mycroft_skill
-
 from icalendar import Calendar, Event, Alarm
 from datetime import datetime, date, timedelta
 from dateutil import rrule
 
 import pytz
+import os
+import constant
+import glob
 
 class VoiceReminder:
     def __init__(self):
-        self.date = []
+        self.datetime = []
         self.message = ''
         self.voicefilepath = ''
+        self.uniquename = ''
 
-    def __init__(self, date, message):
-        self.date = date
+    def __init__(self, date, message, name=''):
+        self.datetime = date
         self.message = message
+        self.name = name
 
-def getReminders(calendar, start_date, timedelta):
+def getRemindersFromFolder(calendar_folder, start_datetime, time_delta):
+    calendar_files = glob.glob(calendar_folder + "/*")
+    
+    reminders = []
+    for calendar_file in calendar_files:
+        reminders += getRemindersFromPath(calendar_file, start_datetime, time_delta)
+
+    return reminders
+
+def getRemindersFromPath(calendar_path, start_datetime, time_delta):
+    print(calendar_path)
+    calendar_file = open(calendar_path, 'rb')
+    ical_object = Calendar.from_ical(calendar_file.read())
+    reminders = getReminders(ical_object, start_datetime, time_delta)
+    calendar_file.close()
+    return reminders
+
+def getReminders(calendar, start_datetime, timedelta):
     l=[]
     for component in calendar.walk():
         alarms = []
@@ -30,7 +48,7 @@ def getReminders(calendar, start_date, timedelta):
         if len(alarms) == 0:
             continue
         
-        end_check_time = start_date + timedelta
+        end_check_time = start_datetime + timedelta
 
         # This component is an event with at lease one alarm.
 
@@ -45,13 +63,18 @@ def getReminders(calendar, start_date, timedelta):
 
             """exclude_rule = getRRULEString(component.get('dtstart').dt + alarm.get('trigger').dt,
             component.get('rrule').to_ical().decode("utf-8"),
-            start_date)"""
+            start_datetime)"""
 
             rule_set = rrule.rruleset()
 
             r = rrule.rrulestr(recursive_rule)
-            for rule_date in r.between(start_date, end_check_time):
-                l.append(VoiceReminder(rule_date,alarm.get('description')))
+            for rule_date in r.between(start_datetime, end_check_time):
+                name = component.get("SUMMARY")
+                name = name.strip()
+                name = name.replace(" ", "")
+                name = name.casefold()
+                name = name.translate(str.maketrans('', '', string.punctuation))
+                l.append(VoiceReminder(rule_date, alarm.get('description'), name))
 
     return l
 
@@ -75,7 +98,7 @@ def getAlarms(event):
 
 def createVoiceFiles(voice_reminders):
     for reminder in voice_reminders: 
-        print(reminder.date.strftime('%Y%m%dT%H%M%S') + "; " + reminder.message)
+        print(reminder.datetime.strftime('%Y%m%dT%H%M%S') + "; " + reminder.message)
 
 def isActive(event, check_time, check_deltatime):
     event_start_time = event.get('dtstart').dt
@@ -103,12 +126,12 @@ def isActive(event, check_time, check_deltatime):
     return False
     """
 
-today = date.today()
+"""today = date.today()
 wd = today.weekday()
 
 g = open('marcus.ics', 'rb')
 gcal = Calendar.from_ical(g.read())
-"""for component in gcal.walk():
+for component in gcal.walk():
     if component.name == "VEVENT":
         #print(component.get('summary'))
         #print(component.get('dtstart').dt)
@@ -121,9 +144,33 @@ gcal = Calendar.from_ical(g.read())
                 print(component.get('summary'))
                 print(component.get('dtstart').dt + nested.get('trigger').dt)
                 print(nested.get('description'))
-"""                
+                
 l = getReminders(gcal,datetime.now(),timedelta(1))
 createVoiceFiles(l)
-"""tz=pytz.timezone('America/Denver')"""
+tz=pytz.timezone('America/Denver')
 g.close()
+"""
+
+def main():
+    reminders = getRemindersFromFolder(constant.ICALENDAR_DIRECTORY,datetime.now(),timedelta(1))
+    for r in reminders:
+        print(r.message)
+
+    pl = glob.glob('/home/pi/icalendar/' + '*ics')
+
+    for p in pl:
+        print(p)
+
+    """for calendar_name in calendar_files:
+        print(calendar_name)
+        g = open(constants.ICALENDAR_DIRECTORY + "/" + calendar_name, 'rb')
+        gcal = Calendar.from_ical(g.read())
+        reminders += getReminders(gcal,datetime.now(),timedelta(1))
+        g.close()
+    
+    print("Hello!")
+    print(constants.ICALENDAR_DIRECTORY)"""
+
+if __name__ == '__main__':
+    main()
 

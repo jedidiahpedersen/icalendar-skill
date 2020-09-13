@@ -20,3 +20,11 @@ skillMetadata:
           type: password
           label: Password
           value: ""
+    - name: Calendars
+      fields:
+        - type: label
+          label: Location of an icalendar to use
+        - name: calendar_location
+          label: calendar
+          type: text
+          value: ""

@@ -1,0 +1,3 @@
+
+ICALENDAR_DIRECTORY = "/home/pi/icalendar"
+CALENDAR_REFRESH_INTERVAL = 30
